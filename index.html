@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>D1 数据库测试</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="title">D1 数据库测试</div>
+      <div class="hint">在当前域名调用 API，点击测试</div>
+    </header>
+
+    <main class="stage" style="display:flex;flex-direction:column;gap:12px;align-items:stretch">
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btnPing" class="action">测试连接</button>
+        <span id="pingStatus" class="progress">未测试</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btnList" class="action primary">获取全部学生</button>
+        <span id="execStatus" class="progress">未执行</span>
+      </div>
+      <div class="card" style="padding:12px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-weight:600">students 快捷操作</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button id="btnFindAll" class="action">查询全部学生</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="nameInput" placeholder="姓名" />
+          <input id="ageInput" placeholder="年龄" type="number" min="0" />
+          <button id="btnInsert" class="action">插入学生</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="searchName" placeholder="按姓名查询" />
+          <button id="btnFind" class="action">查询</button>
+        </div>
+      </div>
+      <pre id="output" class="card" style="padding:12px;white-space:pre-wrap;word-break:break-word;min-height:120px"></pre>
+    </main>
+
+    <footer class="bottombar">
+      <a href="index.html" class="action">返回语法闪卡</a>
+      <a href="vocab.html" class="action">单词闪卡</a>
+    </footer>
+  </div>
+
+  <script>
+  const btnPing = document.getElementById('btnPing');
+  const pingStatus = document.getElementById('pingStatus');
+  const execStatus = document.getElementById('execStatus');
+  const output = document.getElementById('output');
+  const isHttp = location.protocol === 'http:' || location.protocol === 'https:'
+
+  const btnFindAll = document.getElementById('btnFindAll');
+  const btnList = document.getElementById('btnList');
+  const btnInsert = document.getElementById('btnInsert');
+  const btnFind = document.getElementById('btnFind');
+  const nameInput = document.getElementById('nameInput');
+  const ageInput = document.getElementById('ageInput');
+  const searchName = document.getElementById('searchName');
+
+  function show(obj) {
+    try { output.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2); }
+    catch(e) { output.textContent = String(obj); }
+  }
+
+  btnPing.addEventListener('click', async () => {
+    const url = resolveEndpoint();
+    if (!url) { pingStatus.textContent = '请输入端点'; return; }
+    pingStatus.textContent = '测试中…';
+    output.textContent = '';
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      const text = await res.text();
+      pingStatus.textContent = res.ok ? '成功' : '失败';
+      let data = text;
+      try { data = JSON.parse(text); } catch(_) {}
+      show({ status: res.status, ok: res.ok, data });
+    } catch (err) {
+      pingStatus.textContent = '错误';
+      show({ error: String(err) });
+    }
+  });
+
+  function resolveEndpoint() {
+    if (!isHttp) return ''
+    return window.location.origin + '/api/students'
+  }
+
+  async function callStudents(method, query, payload){
+    const abs = resolveEndpoint();
+    if (!abs) return show({ error: 'missing endpoint' });
+    execStatus.textContent = '执行中…';
+    output.textContent = '';
+    try {
+      let url = abs
+      if (query && typeof query === 'string' && query.trim()) {
+        url += '?q=' + encodeURIComponent(query.trim())
+      }
+      const init = { method }
+      if (method === 'POST') {
+        init.headers = { 'content-type': 'application/json' }
+        init.body = JSON.stringify(payload || {})
+      }
+      const res = await fetch(url, init);
+      const text = await res.text();
+      let data = text;
+      try { data = JSON.parse(text); } catch(_) {}
+      execStatus.textContent = res.ok ? '成功' : '失败';
+      show({ status: res.status, ok: res.ok, data });
+    } catch (e) {
+      execStatus.textContent = '错误';
+      show({ error: String(e) });
+    }
+  }
+
+  btnList.addEventListener('click', () => {
+    callStudents('GET');
+  });
+
+  btnFindAll.addEventListener('click', () => {
+    callStudents('GET');
+  });
+
+  btnInsert.addEventListener('click', () => {
+    const n = nameInput.value.trim();
+    const a = parseInt(ageInput.value, 10);
+    if (!n || Number.isNaN(a)) return show({ error: '请输入姓名和年龄' });
+    callStudents('POST', '', { name: n, age: a });
+  });
+
+  btnFind.addEventListener('click', () => {
+    const n = searchName.value.trim();
+    if (!n) return show({ error: '请输入要查询的姓名' });
+    callStudents('GET', n);
+  });
+  </script>
+</body>
+</html>
